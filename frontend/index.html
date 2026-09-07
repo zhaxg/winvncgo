@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OneVNC</title>
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/maple-mono@5.3.0/index.min.css">
+<link rel="stylesheet" href="style.css">
+<script>
+// 最早检测：Wails WebView2 环境
+window.__isWails = false;
+</script>
+</head>
+<body>
+
+<!-- 浏览器中模拟 Windows 标题栏 -->
+<div class="fake-titlebar">
+  <span>OneVNC</span>
+</div>
+
+<!-- 内容 -->
+<div class="content">
+
+  <!-- 当前设备 -->
+  <div class="card">
+    <div class="card-title">当前设备</div>
+
+    <div class="field">
+      <span class="field-label">设备 IP</span>
+      <span class="field-value" id="localIP">-</span>
+    </div>
+
+    <div class="field">
+      <span class="field-label">设备 ID</span>
+      <span class="id-value" id="currentId">-</span>
+      <div class="id-actions">
+        <button class="icon-btn" onclick="refreshId()" data-tip="刷新 ID">
+          <img src="icons/refresh.svg" width="16" height="16" alt="刷新">
+        </button>
+        <button class="icon-btn" onclick="copyId()" data-tip="复制 ID">
+          <img src="icons/copy.svg" width="16" height="16" alt="复制">
+        </button>
+      </div>
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="status-row">
+      <div class="status-item">
+        <span class="status-label">VNC 服务</span>
+        <span class="dot dot-red" id="vncDot"></span>
+        <span class="status-text" id="vncStatus">-</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">控制中心</span>
+        <span class="dot dot-red" id="redisDot"></span>
+        <span class="status-text" id="redisStatus">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 控制他人设备 -->
+  <div class="card">
+    <div class="card-title">控制他人设备</div>
+
+    <div class="input-group">
+      <div class="input-label">设备 ID</div>
+      <input class="input" id="remoteId" type="text"
+             placeholder="输入对方 6 位 ID" maxlength="6">
+    </div>
+
+    <div class="input-group">
+      <div class="input-label">设备 IP（可选）</div>
+      <input class="input" id="remoteIp" type="text"
+             placeholder="控制中心不可用时填写">
+    </div>
+
+    <button class="btn btn-connect" onclick="connect()">
+      连 接
+    </button>
+  </div>
+
+</div>
+
+<div class="footer">红河谷 | 红谷软件 版权所有 2026.9</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// 检测是否在真正的 WebView2 中
+if (window.chrome && window.chrome.webview) {
+  document.documentElement.classList.add('wails');
+}
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

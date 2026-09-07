@@ -1,0 +1,9 @@
+{
+  "name": "wegovnc-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'No build step needed for vanilla HTML'",
+    "build": "echo 'No build step needed for vanilla HTML'"
+  }
+}
