@@ -3,6 +3,7 @@ package tasks
 import (
 	"io/fs"
 	"log"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -11,10 +12,15 @@ import (
 
 // Run 启动 Wails 应用，assets 由调用方提供
 func Run(assets fs.FS) {
+	if !acquireInstanceMutex() {
+		activateExistingWindow()
+		os.Exit(0)
+	}
+
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "WinVNC Go",
+		Title:  "远程协助",
 		Width:         420,
 		Height:        570,
 		DisableResize: true,

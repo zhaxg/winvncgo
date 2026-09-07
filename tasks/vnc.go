@@ -32,12 +32,53 @@ type VNCService struct {
 }
 
 func newVNCService(baseDir string) *VNCService {
-	return &VNCService{
+	s := &VNCService{
 		serverPath: filepath.Join(baseDir, "winvnc.exe"),
 		viewerPath: filepath.Join(baseDir, "vncviewer.exe"),
 		configPath: filepath.Join(baseDir, "ultravnc.ini"),
-		port:       5900,
+		port:       5900, // 默认端口，后续从配置读取
 	}
+	if p := s.readPortFromConfig(); p > 0 {
+		s.port = p
+	}
+	return s
+}
+
+// GetPort 返回 VNC 实际监听端口
+func (s *VNCService) GetPort() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.port
+}
+
+// readPortFromConfig 从 ultravnc.ini [admin] 段读取 PortNumber
+func (s *VNCService) readPortFromConfig() int {
+	data, err := os.ReadFile(s.configPath)
+	if err != nil {
+		return 0
+	}
+	inAdmin := false
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+		if lower == "[admin]" {
+			inAdmin = true
+			continue
+		}
+		if strings.HasPrefix(lower, "[") && strings.HasSuffix(lower, "]") {
+			inAdmin = false
+			continue
+		}
+		if inAdmin && strings.HasPrefix(lower, "portnumber=") {
+			val := strings.TrimSpace(trimmed[len("portnumber="):])
+			var port int
+			fmt.Sscanf(val, "%d", &port)
+			if port > 0 {
+				return port
+			}
+		}
+	}
+	return 0
 }
 
 // openSCM 以完整权限打开服务控制管理器

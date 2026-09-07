@@ -13,8 +13,9 @@ var (
 	procDwmExtendFrame       = dwmapi.NewProc("DwmExtendFrameIntoClientArea")
 
 	user32              = syscall.NewLazyDLL("user32.dll")
-	procFindWindowW     = user32.NewProc("FindWindowW")
+	procFindWindowW         = user32.NewProc("FindWindowW")
 	procGetForegroundWindow = user32.NewProc("GetForegroundWindow")
+	procSetForegroundWindow = user32.NewProc("SetForegroundWindow")
 )
 
 const (

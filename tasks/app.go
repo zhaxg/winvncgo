@@ -48,6 +48,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.mgr.Initialize()
 	go a.statusLoop()
+	go a.mgr.rotationLoop()
 
 	// 应用 Windows 11 Mica 效果
 	a.applyMica()
@@ -113,7 +114,7 @@ func (a *App) applyMica() {
 	runtime.WindowSetBackgroundColour(a.ctx, 0, 0, 0, 0)
 
 	// 通过窗口标题查找 HWND，然后设置 Mica 效果
-	hwnd := findWindowByTitle("WinVNC Go")
+	hwnd := findWindowByTitle("远程协助")
 	if hwnd != 0 {
 		applyBackdrop(hwnd, DWMSBT_MAINWINDOW) // Mica
 	}

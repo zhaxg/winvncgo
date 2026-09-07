@@ -19,9 +19,6 @@ switch ($Action) {
     "build" {
         Write-Host "=== 开发构建 ===" -ForegroundColor Yellow
 
-        # 只清理 bin 目录，保留 build\windows 资产（清单等会被 Wails 以默认内容重建）
-        if (Test-Path build\bin) { Remove-Item build\bin -Recurse -Force }
-
         wails build
 
         if ($LASTEXITCODE -ne 0) {
@@ -35,18 +32,23 @@ switch ($Action) {
             upx --best --lzma build\bin\winvncgo.exe
         }
 
-        # 复制依赖
-        Copy-Item libs\winvncgo.json build\bin\ -Force
-        Copy-Item libs\ultravnc\* build\bin\ -Force
+        # UltraVNC 运行时：没有 winvnc.exe 才整目录复制
+        if (-not (Test-Path build\bin\winvnc.exe)) {
+            Copy-Item libs\ultravnc\* build\bin\ -Force
+        }
+        # 配置文件：没有才复制，有就跳过（保留用户修改）
+        if (-not (Test-Path build\bin\winvncgo.json)) {
+            Copy-Item libs\winvncgo.json build\bin\
+        }
+        if (-not (Test-Path build\bin\ultravnc.ini)) {
+            Copy-Item libs\ultravnc.ini build\bin\
+        }
 
         $size = [math]::Round((Get-Item "build\bin\winvncgo.exe").Length / 1MB, 2)
         Write-Host "构建成功: build\bin\ ($size MB)" -ForegroundColor Green
     }
     "release" {
         Write-Host "=== 生产构建 ===" -ForegroundColor Yellow
-
-        # 只清理 bin 目录，保留 build\windows 资产（清单等会被 Wails 以默认内容重建）
-        if (Test-Path build\bin) { Remove-Item build\bin -Recurse -Force }
 
         wails build -clean
 
@@ -61,9 +63,17 @@ switch ($Action) {
             upx --best --lzma build\bin\winvncgo.exe
         }
 
-        # 复制依赖
-        Copy-Item libs\winvncgo.json build\bin\ -Force
-        Copy-Item libs\ultravnc\* build\bin\ -Force
+        # UltraVNC 运行时：没有 winvnc.exe 才整目录复制
+        if (-not (Test-Path build\bin\winvnc.exe)) {
+            Copy-Item libs\ultravnc\* build\bin\ -Force
+        }
+        # 配置文件：没有才复制，有就跳过（保留用户修改）
+        if (-not (Test-Path build\bin\winvncgo.json)) {
+            Copy-Item libs\winvncgo.json build\bin\
+        }
+        if (-not (Test-Path build\bin\ultravnc.ini)) {
+            Copy-Item libs\ultravnc.ini build\bin\
+        }
 
         $totalSize = [math]::Round((Get-ChildItem build\bin -File | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
         Write-Host "`n=== 分发目录: build\bin\ ===" -ForegroundColor Yellow

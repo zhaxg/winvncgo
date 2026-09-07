@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WinVNC Go</title>
+<title>远程协助</title>
 <link rel="icon" type="image/png" href="icons/favicon.png">
 <link rel="stylesheet" href="style.css">
 <script>
@@ -34,7 +34,7 @@ window.__isWails = false;
       <span class="field-label">设备 ID</span>
       <span class="id-value" id="currentId">-</span>
       <div class="id-actions">
-        <button class="icon-btn" onclick="refreshId()" data-tip="刷新 ID">
+        <button class="icon-btn" onclick="refreshId()" data-tip="刷新ID(半小时自动轮换)">
           <img src="icons/refresh.svg" width="16" height="16" alt="刷新">
         </button>
         <button class="icon-btn" onclick="copyId()" data-tip="复制 ID">
@@ -72,7 +72,7 @@ window.__isWails = false;
     <div class="input-group">
       <div class="input-label">设备 IP（可选）</div>
       <input class="input" id="remoteIp" type="text"
-             placeholder="控制中心不可用时填写">
+             placeholder="输入对方地址IP[:port]">
     </div>
 
     <button class="btn btn-connect" onclick="connect()">
