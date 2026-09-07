@@ -36,6 +36,12 @@ func (m *Manager) Initialize() {
 	}
 	m.localIP = getLocalIP()
 	warnIfNotElevated(m)
+
+	// 确保 VNC 服务已安装并运行
+	if err := m.vnc.EnsureService(); err != nil {
+		m.log(fmt.Sprintf("VNC 服务启动失败: %v", err))
+	}
+
 	m.RefreshID()
 	m.log("应用启动成功")
 }
@@ -79,7 +85,7 @@ func (m *Manager) RefreshID() error {
 	if m.currentID != "" && m.rdb != nil && m.rdb.IsConnected() {
 		m.rdb.Del(m.currentID)
 	}
-	m.vnc.Stop()
+	// 不停止 VNC 服务，只更新配置文件中的密码
 
 	newID, err := generateID()
 	if err != nil {
@@ -92,11 +98,7 @@ func (m *Manager) RefreshID() error {
 		m.log(fmt.Sprintf("配置写入失败: %v", err))
 		return err
 	}
-	if !m.vnc.Start() {
-		m.log("UltraVNC 启动失败")
-		return fmt.Errorf("vnc start failed")
-	}
-	m.log("UltraVNC 已启动")
+	m.log("密码已更新")
 
 	if m.rdb != nil && m.rdb.IsConnected() {
 		if m.rdb.Set(newID, fmt.Sprintf("%s:%d", m.localIP, 5900)) {

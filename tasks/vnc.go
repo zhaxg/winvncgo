@@ -1,3 +1,5 @@
+//go:build windows
+
 package tasks
 
 import (
@@ -8,11 +10,17 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
+
+	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
 )
+
+const serviceName = "uvnc_service"
 
 type VNCService struct {
 	mu         sync.Mutex
-	process    *exec.Cmd
 	isRunning  bool
 	hasConn    bool
 	serverPath string
@@ -30,7 +38,117 @@ func newVNCService(baseDir string) *VNCService {
 	}
 }
 
-// SetPassword 将 ID 作为 VNC 密码，用官方算法（vnc_des.go）实时加密后写入配置
+// openSCM 以完整权限打开服务控制管理器
+func openSCM() (windows.Handle, error) {
+	return windows.OpenSCManager(nil, nil, windows.SC_MANAGER_ALL_ACCESS)
+}
+
+// openServiceRaw 以指定权限打开服务，返回原始 Handle
+func openServiceRaw(scm windows.Handle, name string, access uint32) (windows.Handle, error) {
+	return windows.OpenService(scm, windows.StringToUTF16Ptr(name), access)
+}
+
+// svcFromHandle 将原始 Handle 包装为 *mgr.Service 以使用 Query/Control 方法
+func svcFromHandle(h windows.Handle) *mgr.Service {
+	return &mgr.Service{Handle: h}
+}
+
+// EnsureService 确保 uvnc_service 已安装并运行；不存在则安装，未运行则启动
+func (s *VNCService) EnsureService() error {
+	if _, err := os.Stat(s.serverPath); os.IsNotExist(err) {
+		return fmt.Errorf("winvnc.exe 不存在: %s", s.serverPath)
+	}
+
+	scm, err := openSCM()
+	if err != nil {
+		return fmt.Errorf("连接服务管理器失败: %w", err)
+	}
+	defer windows.CloseServiceHandle(scm)
+
+	// 尝试打开服务（SERVICE_START 用于启动，SERVICE_QUERY_STATUS 用于查询状态）
+	svcH, err := openServiceRaw(scm, serviceName,
+		windows.SERVICE_START|windows.SERVICE_QUERY_STATUS)
+	if err != nil {
+		// 服务不存在，安装并启动
+		return s.installAndStartService(scm)
+	}
+	defer windows.CloseServiceHandle(svcH)
+
+	// 服务存在，检查运行状态
+	status, err := svcFromHandle(svcH).Query()
+	if err != nil {
+		return fmt.Errorf("查询服务状态失败: %w", err)
+	}
+
+	if status.State == svc.Running {
+		s.mu.Lock()
+		s.isRunning = true
+		s.mu.Unlock()
+		return nil
+	}
+
+	// 服务未运行，尝试启动
+	if err := svcFromHandle(svcH).Start(); err != nil {
+		// 启动失败，删除后重新安装
+		windows.CloseServiceHandle(svcH)
+		delH, delErr := openServiceRaw(scm, serviceName, windows.DELETE)
+		if delErr == nil {
+			windows.DeleteService(delH)
+			windows.CloseServiceHandle(delH)
+			time.Sleep(2 * time.Second)
+		}
+		return s.installAndStartService(scm)
+	}
+
+	time.Sleep(2 * time.Second)
+	s.mu.Lock()
+	s.isRunning = true
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *VNCService) installAndStartService(scm windows.Handle) error {
+	// 确保 ultravnc.portable 存在，让 winvnc 从 exe 同目录读取 ini
+	portablePath := filepath.Join(filepath.Dir(s.serverPath), "ultravnc.portable")
+	if _, err := os.Stat(portablePath); os.IsNotExist(err) {
+		os.WriteFile(portablePath, []byte{}, 0644)
+	}
+
+	// 通过 SCM 安装服务，可执行路径为 winvnc.exe -service
+	svcPath := `"` + s.serverPath + `" -service`
+
+	svcH, err := windows.CreateService(scm,
+		windows.StringToUTF16Ptr(serviceName),       // lpServiceName
+		windows.StringToUTF16Ptr("UltraVNC Server"), // lpDisplayName
+		windows.SERVICE_ALL_ACCESS,                   // dwDesiredAccess
+		windows.SERVICE_WIN32_OWN_PROCESS,            // dwServiceType
+		windows.SERVICE_DEMAND_START,                 // dwStartType
+		windows.SERVICE_ERROR_NORMAL,                 // dwErrorControl
+		windows.StringToUTF16Ptr(svcPath),            // lpBinaryPathName
+		nil,                                          // lpLoadOrderGroup
+		nil,                                          // lpdwTagId
+		nil,                                          // lpDependencies
+		windows.StringToUTF16Ptr("LocalSystem"),      // lpServiceStartName
+		nil,                                          // lpPassword
+	)
+	if err != nil {
+		return fmt.Errorf("安装服务失败: %w", err)
+	}
+	defer windows.CloseServiceHandle(svcH)
+
+	// 直接用创建好的句柄启动（已有 SERVICE_ALL_ACCESS）
+	if err := svcFromHandle(svcH).Start(); err != nil {
+		return fmt.Errorf("启动服务失败: %w", err)
+	}
+
+	time.Sleep(2 * time.Second)
+	s.mu.Lock()
+	s.isRunning = true
+	s.mu.Unlock()
+	return nil
+}
+
+// SetPassword 将 ID 作为 VNC 密码，用官方算法实时加密后写入配置
 func (s *VNCService) SetPassword(id string) error {
 	encrypted := vncEncryptPassword(id)
 
@@ -76,6 +194,115 @@ func (s *VNCService) writeConfig(configPath, ultravncSection string) {
 	os.WriteFile(configPath, []byte(updated), 0644)
 }
 
+// Stop 停止 VNC 服务
+func (s *VNCService) Stop() {
+	scm, err := openSCM()
+	if err != nil {
+		return
+	}
+	defer windows.CloseServiceHandle(scm)
+
+	svcH, err := openServiceRaw(scm, serviceName,
+		windows.SERVICE_STOP|windows.SERVICE_QUERY_STATUS)
+	if err != nil {
+		return
+	}
+	defer windows.CloseServiceHandle(svcH)
+
+	status, err := svcFromHandle(svcH).Query()
+	if err != nil {
+		return
+	}
+
+	if status.State == svc.Running {
+		svcFromHandle(svcH).Control(svc.Stop)
+	}
+
+	s.mu.Lock()
+	s.isRunning = false
+	s.mu.Unlock()
+}
+
+func (s *VNCService) isServiceRunning() bool {
+	scm, err := openSCM()
+	if err != nil {
+		return false
+	}
+	defer windows.CloseServiceHandle(scm)
+
+	svcH, err := openServiceRaw(scm, serviceName, windows.SERVICE_QUERY_STATUS)
+	if err != nil {
+		return false
+	}
+	defer windows.CloseServiceHandle(svcH)
+
+	status, err := svcFromHandle(svcH).Query()
+	if err != nil {
+		return false
+	}
+
+	return status.State == svc.Running
+}
+
+func (s *VNCService) IsRunning() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	running := s.isServiceRunning()
+	s.isRunning = running
+	return running
+}
+
+func (s *VNCService) RefreshConnectionState() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.isServiceRunning() {
+		s.isRunning = false
+		s.hasConn = false
+		return
+	}
+	s.isRunning = true
+	s.hasConn = hasEstablishedConnections(s.port)
+}
+
+func (s *VNCService) HasActiveConnection() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.hasConn
+}
+
+func (s *VNCService) LaunchViewer(ip string, port int, password string) error {
+	return exec.Command(s.viewerPath, fmt.Sprintf("%s:%d", ip, port), "-password", password).Start()
+}
+
+// hasEstablishedConnections 通过 netstat 检测是否有已建立的 TCP 连接到指定端口
+func hasEstablishedConnections(port int) bool {
+	cmd := exec.Command("netstat", "-an")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		if !strings.Contains(line, "ESTABLISHED") {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) < 3 {
+			continue
+		}
+		localAddr := parts[1]
+		if idx := strings.LastIndex(localAddr, ":"); idx != -1 {
+			localPort := localAddr[idx+1:]
+			if localPort == fmt.Sprintf("%d", port) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // replaceSection 替换 ini 文件中指定段的内容（大小写不敏感）
 func replaceSection(content, section, newSection string) string {
 	lines := splitLines(content)
@@ -90,7 +317,6 @@ func replaceSection(content, section, newSection string) string {
 	}
 
 	if start == -1 {
-		// 段不存在，追加到末尾
 		return content + "\n" + newSection
 	}
 
@@ -119,109 +345,4 @@ func splitLines(s string) []string {
 		s = s[idx+1:]
 	}
 	return lines
-}
-
-func (s *VNCService) Start() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.isRunning {
-		return true
-	}
-	if _, err := os.Stat(s.serverPath); os.IsNotExist(err) {
-		return false
-	}
-	// 确保 ultravnc.portable 存在，让 winvnc 从 exe 同目录读取 ini
-	portablePath := filepath.Join(filepath.Dir(s.serverPath), "ultravnc.portable")
-	if _, err := os.Stat(portablePath); os.IsNotExist(err) {
-		os.WriteFile(portablePath, []byte{}, 0644)
-	}
-	s.killExisting()
-	workDir := filepath.Dir(s.serverPath)
-	s.process = exec.Command(s.serverPath, "-run")
-	s.process.Dir = workDir
-	s.process.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	if err := s.process.Start(); err != nil {
-		return false
-	}
-	s.isRunning = true
-	go func() {
-		s.process.Wait()
-		s.mu.Lock()
-		s.isRunning = false
-		s.mu.Unlock()
-	}()
-	return true
-}
-
-func (s *VNCService) Stop() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.process != nil && s.process.Process != nil {
-		s.process.Process.Kill()
-		s.process.Wait()
-	}
-	s.isRunning = false
-}
-
-func (s *VNCService) killExisting() {
-	cmd := exec.Command("taskkill", "/F", "/IM", "winvnc.exe")
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	cmd.Run()
-}
-
-func (s *VNCService) IsRunning() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.isRunning
-}
-
-func (s *VNCService) RefreshConnectionState() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.process == nil || (s.process.ProcessState != nil && s.process.ProcessState.Exited()) {
-		s.isRunning = false
-		s.hasConn = false
-		return
-	}
-	s.hasConn = hasEstablishedConnections(s.port)
-}
-
-func (s *VNCService) HasActiveConnection() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.hasConn
-}
-
-func (s *VNCService) LaunchViewer(ip string, port int, password string) error {
-	return exec.Command(s.viewerPath, fmt.Sprintf("%s:%d", ip, port), "-password", password).Start()
-}
-
-// hasEstablishedConnections 通过 netstat 检测是否有已建立的 TCP 连接到指定端口
-func hasEstablishedConnections(port int) bool {
-	cmd := exec.Command("netstat", "-an")
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
-		if !strings.Contains(line, "ESTABLISHED") {
-			continue
-		}
-		// 匹配本地端口，如 192.168.1.100:5900 或 [::1]:5900
-		parts := strings.Fields(line)
-		if len(parts) < 3 {
-			continue
-		}
-		localAddr := parts[1]
-		if idx := strings.LastIndex(localAddr, ":"); idx != -1 {
-			localPort := localAddr[idx+1:]
-			if localPort == fmt.Sprintf("%d", port) {
-				return true
-			}
-		}
-	}
-	return false
 }
