@@ -34,3 +34,4 @@ Desktop.ini
 
 # ===== 工具链 =====
 .code-graph/
+/libs/ultravnc

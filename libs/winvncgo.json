@@ -1,0 +1,5 @@
+{
+  "AppSettings": {
+    "ctl_center": "redis://vnc:Vnc2026%@192.168.60.213:6379/vnc?ttl=30"
+  }
+}
