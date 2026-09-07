@@ -3,7 +3,7 @@ package main
 import (
 	"embed"
 
-	"wegovnc/tasks"
+	"winvncgo/tasks"
 )
 
 //go:embed frontend

@@ -7,14 +7,14 @@ import (
 	"testing"
 )
 
-// TestLoadConfigSample 对齐 libs/wegovnc.json 示例配置的解析结果
+// TestLoadConfigSample 对齐 libs/winvncgo.json 示例配置的解析结果
 func TestLoadConfigSample(t *testing.T) {
 	const sample = `{
   "AppSettings": {
     "ctl_center": "redis://vnc:Vnc2026%@192.168.60.213:6379/vnc?ttl=30"
   }
 }`
-	path := filepath.Join(t.TempDir(), "wegovnc.json")
+	path := filepath.Join(t.TempDir(), "winvncgo.json")
 	if err := os.WriteFile(path, []byte(sample), 0644); err != nil {
 		t.Fatal(err)
 	}

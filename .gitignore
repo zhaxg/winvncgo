@@ -1,36 +1,31 @@
 # ===== 构建产物 =====
 # Wails 构建输出（二进制 + 复制的 UltraVNC 依赖），可随时用 build.ps1 重建
 build/bin/
-# Wails 生成的 Windows 资源（icon.ico 由 appicon.png 构建时重建）
+# Wails 生成的 Windows 资源（icon.ico 由 appicon.png 构建时自动重建）
 build/windows/icon.ico
 # Go 编译的临时资源对象文件（Wails 构建后自动删除，若残留则忽略）
 *-res.syso
 
-# ===== 运行时文件 =====
-# 日志与本地配置（含控制中心地址/密码，部署时各机器不同）
+# ===== 运行时 / 本机文件 =====
 *.log
-wegovnc.json
-ultravnc.portable
-# 运行时被程序改写过的 ini（密码随 ID 轮换）
-build/bin/ultravnc.ini
+# dev 模式从根目录运行时可能在根目录产生的运行时痕迹
+/ultravnc.portable
+# 运行时配置：含本机控制中心地址与口令，不入库（分发模板是 libs/wegovnc.json）
+/wegovnc.json
 
 # ===== Go =====
-*.exe
-*.exe~
-*.dll
-*.sys
 *.test
 *.out
 *.prof
-coverage.txt
+
+# ===== 前端 =====
+node_modules/
 
 # ===== 编辑器 / IDE =====
 .vscode/
 .idea/
 *.swp
-*.swo
 *~
-.Foxref/
 
 # ===== 操作系统 =====
 Thumbs.db

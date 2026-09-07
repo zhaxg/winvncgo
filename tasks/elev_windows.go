@@ -56,5 +56,5 @@ func warnIfNotElevated(logger interface{ log(string) }) {
 	if isAdmin() {
 		return
 	}
-	logger.log("警告: 程序未以管理员身份运行，winvnc 将无法捕获屏幕（连接后黑屏）。请以管理员身份运行 wegovnc.exe")
+	logger.log("警告: 程序未以管理员身份运行，winvnc 将无法捕获屏幕（连接后黑屏）。请以管理员身份运行 winvncgo.exe")
 }

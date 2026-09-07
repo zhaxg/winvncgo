@@ -32,14 +32,14 @@ switch ($Action) {
         # UPX 压缩
         if (Get-Command upx -ErrorAction SilentlyContinue) {
             Write-Host "UPX 压缩中..."
-            upx --best --lzma build\bin\wegovnc.exe
+            upx --best --lzma build\bin\winvncgo.exe
         }
 
         # 复制依赖
-        Copy-Item libs\wegovnc.json build\bin\ -Force
+        Copy-Item libs\winvncgo.json build\bin\ -Force
         Copy-Item libs\ultravnc\* build\bin\ -Force
 
-        $size = [math]::Round((Get-Item "build\bin\wegovnc.exe").Length / 1MB, 2)
+        $size = [math]::Round((Get-Item "build\bin\winvncgo.exe").Length / 1MB, 2)
         Write-Host "构建成功: build\bin\ ($size MB)" -ForegroundColor Green
     }
     "release" {
@@ -58,11 +58,11 @@ switch ($Action) {
         # UPX 压缩
         if (Get-Command upx -ErrorAction SilentlyContinue) {
             Write-Host "UPX 压缩中..."
-            upx --best --lzma build\bin\wegovnc.exe
+            upx --best --lzma build\bin\winvncgo.exe
         }
 
         # 复制依赖
-        Copy-Item libs\wegovnc.json build\bin\ -Force
+        Copy-Item libs\winvncgo.json build\bin\ -Force
         Copy-Item libs\ultravnc\* build\bin\ -Force
 
         $totalSize = [math]::Round((Get-ChildItem build\bin -File | Measure-Object -Property Length -Sum).Sum / 1MB, 2)

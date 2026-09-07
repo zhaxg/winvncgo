@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// Config 应用配置，来自 exe 同目录的 wegovnc.json
+// Config 应用配置，来自 exe 同目录的 winvncgo.json
 type Config struct {
 	AppSettings AppSettings `json:"AppSettings"`
 }

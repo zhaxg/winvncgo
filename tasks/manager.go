@@ -21,7 +21,7 @@ func newManager(cfg Config, baseDir string) *Manager {
 	return &Manager{
 		config:  cfg,
 		vnc:     newVNCService(baseDir),
-		logFile: filepath.Join(baseDir, "wegovnc.log"),
+		logFile: filepath.Join(baseDir, "winvncgo.log"),
 	}
 }
 

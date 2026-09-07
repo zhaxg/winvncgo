@@ -14,7 +14,7 @@ func Run(assets fs.FS) {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "OneVNC",
+		Title:  "WinVNC Go",
 		Width:         420,
 		Height:        570,
 		DisableResize: true,

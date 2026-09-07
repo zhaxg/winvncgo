@@ -1,4 +1,4 @@
-module wegovnc
+module winvncgo
 
 go 1.25.0
 

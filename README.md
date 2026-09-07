@@ -1,4 +1,4 @@
-# OneVNC
+# WinVNC Go
 
 基于 [Wails v2](https://wails.io/) 的轻量级 VNC 远程控制工具，支持通过 Redis 控制中心自动发现设备。
 
@@ -61,7 +61,7 @@ wails dev
 ## 项目结构
 
 ```
-wegovnc/
+winvncgo/
 ├── main.go                 # 入口，嵌入 frontend 资源
 ├── tasks/
 │   ├── main.go             # Wails 应用配置与启动
@@ -69,7 +69,7 @@ wegovnc/
 │   ├── manager.go          # 核心业务逻辑：ID 生成、VNC 启停、Redis 注册
 │   ├── vnc.go              # UltraVNC 进程管理
 │   ├── redis.go            # 原生 TCP 实现的 Redis 客户端
-│   ├── config.go           # 配置文件加载（wegovnc.json）
+│   ├── config.go           # 配置文件加载（winvncgo.json）
 │   ├── network.go          # 本机 IP 获取
 │   ├── id.go               # 6 位随机 ID 生成
 │   ├── types.go            # 状态事件结构体
@@ -82,7 +82,7 @@ wegovnc/
 │   └── wailsjs/            # Wails 自动生成的 JS 绑定
 ├── libs/
 │   ├── ultravnc/           # UltraVNC 二进制及 DLL
-│   └── wegovnc.json        # 默认配置文件
+│   └── winvncgo.json        # 默认配置文件
 ├── build/                  # 构建产物
 ├── build.ps1               # 构建脚本（dev / build / release）
 ├── wails.json              # Wails 项目配置
@@ -92,7 +92,7 @@ wegovnc/
 
 ## 配置文件
 
-`wegovnc.json` 放在可执行文件同目录下，示例：
+`winvncgo.json` 放在可执行文件同目录下，示例：
 
 ```json
 {
@@ -128,4 +128,4 @@ wegovnc/
 - 前端为原生 HTML/JS/CSS，无构建步骤
 - Wails 自动生成 `frontend/wailsjs/` 下的 JS 绑定代码
 - Redis 客户端为原生 TCP 实现（未使用第三方库）
-- 日志输出到 `wegovnc.log`（与可执行文件同目录）
+- 日志输出到 `winvncgo.log`（与可执行文件同目录）

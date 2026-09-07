@@ -28,7 +28,7 @@ func NewApp() *App {
 		}
 	}
 
-	cfg := loadConfig(filepath.Join(baseDir, "wegovnc.json"))
+	cfg := loadConfig(filepath.Join(baseDir, "winvncgo.json"))
 	mgr := newManager(cfg, baseDir)
 
 	return &App{
@@ -113,7 +113,7 @@ func (a *App) applyMica() {
 	runtime.WindowSetBackgroundColour(a.ctx, 0, 0, 0, 0)
 
 	// 通过窗口标题查找 HWND，然后设置 Mica 效果
-	hwnd := findWindowByTitle("OneVNC")
+	hwnd := findWindowByTitle("WinVNC Go")
 	if hwnd != 0 {
 		applyBackdrop(hwnd, DWMSBT_MAINWINDOW) // Mica
 	}
