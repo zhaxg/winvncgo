@@ -127,7 +127,7 @@ func escapeUserInfo(raw string) (string, error) {
 	}
 	at := strings.LastIndex(rest, "@")
 	if at == -1 {
-		return "", fmt.Errorf("no userinfo")
+		return "", fmt.Errorf("连接串中缺少用户名密码")
 	}
 	userinfo := rest[:at]
 	host := rest[at+1:]

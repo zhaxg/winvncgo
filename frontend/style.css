@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/maple-mono-latin-400-normal.woff2") format("woff2");
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body, input, button {
@@ -261,7 +269,7 @@ html.wails .fake-titlebar {
   transform: translateX(-50%);
   background: #16A34A;
   color: #fff;
-  padding: 8px 16px;
+  padding: 8px 20px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
@@ -269,6 +277,10 @@ html.wails .fake-titlebar {
   transition: opacity 0.3s;
   pointer-events: none;
   z-index: 999;
+  white-space: nowrap;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
 }
 
 .toast.show { opacity: 1; }

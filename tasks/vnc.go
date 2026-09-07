@@ -11,8 +11,10 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 )
@@ -122,7 +124,7 @@ func (s *VNCService) installAndStartService(scm windows.Handle) error {
 		windows.StringToUTF16Ptr("UltraVNC Server"), // lpDisplayName
 		windows.SERVICE_ALL_ACCESS,                   // dwDesiredAccess
 		windows.SERVICE_WIN32_OWN_PROCESS,            // dwServiceType
-		windows.SERVICE_DEMAND_START,                 // dwStartType
+		windows.SERVICE_AUTO_START,                   // dwStartType（自动启动）
 		windows.SERVICE_ERROR_NORMAL,                 // dwErrorControl
 		windows.StringToUTF16Ptr(svcPath),            // lpBinaryPathName
 		nil,                                          // lpLoadOrderGroup
@@ -135,6 +137,24 @@ func (s *VNCService) installAndStartService(scm windows.Handle) error {
 		return fmt.Errorf("安装服务失败: %w", err)
 	}
 	defer windows.CloseServiceHandle(svcH)
+
+	// 设置延迟自动启动（Automatic Delayed Start）
+	// SERVICE_CONFIG_DELAYED_AUTO_START_INFO = 3
+	type delayedAutoStartInfo struct {
+		fDelayedAutostart int32
+	}
+	info := delayedAutoStartInfo{fDelayedAutostart: 1}
+	windows.ChangeServiceConfig2(svcH, 3, (*byte)(unsafe.Pointer(&info)))
+
+	// 设置 SoftwareSASGeneration 允许服务发送 SAS（Ctrl+Alt+Del）
+	key, _, err := registry.CreateKey(
+		registry.LOCAL_MACHINE,
+		`SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`,
+		registry.SET_VALUE)
+	if err == nil {
+		key.SetDWordValue("SoftwareSASGeneration", 1)
+		key.Close()
+	}
 
 	// 直接用创建好的句柄启动（已有 SERVICE_ALL_ACCESS）
 	if err := svcFromHandle(svcH).Start(); err != nil {
@@ -271,7 +291,16 @@ func (s *VNCService) HasActiveConnection() bool {
 }
 
 func (s *VNCService) LaunchViewer(ip string, port int, password string) error {
-	return exec.Command(s.viewerPath, fmt.Sprintf("%s:%d", ip, port), "-password", password).Start()
+	addr := fmt.Sprintf("%s:%d", ip, port)
+	args := []string{
+		addr,
+		"/password", password,
+		"/encoding", "ultra2",
+		"/notoolbar",
+		// "/nohotkeys",
+		// "/scale", "2/3",
+	}
+	return exec.Command(s.viewerPath, args...).Start()
 }
 
 // hasEstablishedConnections 通过 netstat 检测是否有已建立的 TCP 连接到指定端口

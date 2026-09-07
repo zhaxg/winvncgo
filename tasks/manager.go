@@ -80,7 +80,7 @@ func (m *Manager) RefreshID() error {
 	m.vnc.RefreshConnectionState()
 	if m.vnc.HasActiveConnection() {
 		m.log("当前有活跃连接，跳过 ID 轮换")
-		return fmt.Errorf("has active connection")
+		return fmt.Errorf("当前有活跃连接")
 	}
 	if m.currentID != "" && m.rdb != nil && m.rdb.IsConnected() {
 		m.rdb.Del(m.currentID)
@@ -143,7 +143,7 @@ func (m *Manager) Connect(remoteID, remoteIP string) error {
 func (m *Manager) CopyID() string { return m.currentID }
 
 func (m *Manager) Shutdown() {
-	m.vnc.Stop()
+	// 不停止 VNC 服务，服务保持运行
 	if m.currentID != "" && m.rdb != nil && m.rdb.IsConnected() {
 		m.rdb.Del(m.currentID)
 	}
