@@ -110,10 +110,29 @@ func (m *Manager) RefreshID() error {
 	}
 	// 不停止 VNC 服务，只更新配置文件中的密码
 
-	newID, err := generateID()
-	if err != nil {
-		return err
+	// 生成唯一 ID（最多重试 10 次）
+	var newID string
+	var err error
+	for i := 0; i < 10; i++ {
+		newID, err = generateID()
+		if err != nil {
+			return err
+		}
+		// 尝试用 SETNX 注册到 Redis
+		// 如果 Redis 不可用，SetNX 返回 true，允许继续
+		// 如果 Redis 可用但 ID 已存在，SetNX 返回 false，重新生成
+		if m.rdb != nil {
+			ttl := time.Duration(m.config.ControlCenter().TTL) * time.Minute
+			if m.rdb.SetNX(newID, fmt.Sprintf("%s:%d", m.localIP, m.vnc.GetPort()), ttl) {
+				break
+			}
+			m.log(fmt.Sprintf("ID %s 已被占用，重新生成", newID))
+		} else {
+			// Redis 不可用，直接使用
+			break
+		}
 	}
+
 	m.currentID = newID
 	m.log(fmt.Sprintf("ID 已生成: %s", newID))
 
@@ -123,6 +142,7 @@ func (m *Manager) RefreshID() error {
 	}
 	m.log("密码已更新")
 
+	// 如果 Redis 可用且未注册，尝试普通 SET（兼容旧逻辑）
 	if m.rdb != nil && m.rdb.IsConnected() {
 		port := m.vnc.GetPort()
 		if m.rdb.Set(newID, fmt.Sprintf("%s:%d", m.localIP, port)) {

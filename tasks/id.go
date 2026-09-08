@@ -5,16 +5,21 @@ import (
 	"math/big"
 )
 
-// preGeneratedIDs 可用 ID 列表（与 vnc_des_test.go 中的加密对照表配对）
-var preGeneratedIDs = []string{
-	"114514", "823456", "773890", "226100", "551789",
-	"330264", "998271", "664038", "109675", "447231",
-}
+// idChars 可用字符集（21个）
+// 数字 0-9 + 清晰字母（排除易混淆的 B/D/G/J/M/N/Q/Y/I/L/O/F/S/Z/C/H）
+const idChars = "0123456789AEKPRSTUVWX"
+
+// idLength ID长度
+const idLength = 6
 
 func generateID() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(preGeneratedIDs))))
-	if err != nil {
-		return "", err
+	result := make([]byte, idLength)
+	for i := 0; i < idLength; i++ {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(idChars))))
+		if err != nil {
+			return "", err
+		}
+		result[i] = idChars[n.Int64()]
 	}
-	return preGeneratedIDs[n.Int64()], nil
+	return string(result), nil
 }

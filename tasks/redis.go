@@ -78,6 +78,23 @@ func (c *RedisClient) Del(key string) bool {
 	return c.cmd("DEL", c.prefix+key) == nil
 }
 
+// SetNX 设置 key-value，仅当 key 不存在时才设置
+// 返回 true 表示设置成功（key 不存在），false 表示 key 已存在
+func (c *RedisClient) SetNX(key, value string, ttl time.Duration) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.connected {
+		// Redis 不可用时返回 true，允许继续使用（不去重）
+		return true
+	}
+	seconds := int(ttl.Seconds())
+	if seconds <= 0 {
+		seconds = int(c.ttl.Seconds())
+	}
+	err := c.cmd("SET", c.prefix+key, value, "NX", "EX", strconv.Itoa(seconds))
+	return err == nil
+}
+
 func (c *RedisClient) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()

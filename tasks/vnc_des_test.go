@@ -74,16 +74,29 @@ func TestPreGeneratedPasswordsChecksum(t *testing.T) {
 	}
 }
 
-// TestPreGeneratedIDsHavePasswords preGeneratedIDs（id.go）与上方对照表必须一一对应
-func TestPreGeneratedIDsHavePasswords(t *testing.T) {
-	for _, id := range preGeneratedIDs {
-		if _, ok := preGeneratedPasswords[id]; !ok {
-			t.Errorf("preGeneratedIDs 中的 %q 在 preGeneratedPasswords 中没有对应的加密密码", id)
+// TestGenerateID 验证新 ID 生成逻辑
+func TestGenerateID(t *testing.T) {
+	allowedChars := "0123456789AEKPRSTUVWX"
+	for i := 0; i < 100; i++ {
+		id, err := generateID()
+		if err != nil {
+			t.Fatalf("generateID() 返回错误: %v", err)
 		}
-	}
-	if len(preGeneratedPasswords) != len(preGeneratedIDs) {
-		t.Errorf("preGeneratedPasswords 有 %d 条, preGeneratedIDs 有 %d 条, 应一一对应",
-			len(preGeneratedPasswords), len(preGeneratedIDs))
+		if len(id) != 6 {
+			t.Errorf("generateID() 返回长度 %d, 期望 6", len(id))
+		}
+		for _, c := range id {
+			found := false
+			for _, ac := range allowedChars {
+				if c == ac {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("generateID() 返回包含非法字符 %c", c)
+			}
+		}
 	}
 }
 
