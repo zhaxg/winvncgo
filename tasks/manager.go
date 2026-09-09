@@ -206,7 +206,7 @@ func (m *Manager) Shutdown() {
 	}
 
 	// 设置随机密码，防止程序关闭后被连接
-	randomPwd, err := generateRandomPassword(8)
+	randomPwd, err := generateID()
 	if err != nil {
 		m.log("生成随机密码失败")
 	} else {
