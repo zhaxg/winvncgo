@@ -198,10 +198,25 @@ func (m *Manager) CopyID() string { return m.currentID }
 
 func (m *Manager) Shutdown() {
 	close(m.done)
-	// 不停止 VNC 服务，服务保持运行
+
+	// 安全关闭：删除 Redis 注册信息，防止程序关闭后被连接
 	if m.currentID != "" && m.rdb != nil && m.rdb.IsConnected() {
 		m.rdb.Del(m.currentID)
+		m.log("已从控制中心注销")
 	}
+
+	// 设置随机密码，防止程序关闭后被连接
+	randomPwd, err := generateRandomPassword(8)
+	if err != nil {
+		m.log("生成随机密码失败")
+	} else {
+		if err := m.vnc.SetPassword(randomPwd); err != nil {
+			m.log("设置随机密码失败")
+		} else {
+			m.log("已设置随机密码，程序关闭后无法连接")
+		}
+	}
+
 	if m.rdb != nil {
 		m.rdb.Close()
 	}
