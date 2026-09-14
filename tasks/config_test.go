@@ -168,3 +168,64 @@ func TestConfigJSONTag(t *testing.T) {
 		t.Errorf("ctl_center 未正确解析: %q", cfg.AppSettings.CtlCenter)
 	}
 }
+
+// TestStripJSONComments 去注释功能
+func TestStripJSONComments(t *testing.T) {
+	tests := []struct {
+		name, input, want string
+	}{
+		{
+			"行注释",
+			"{\n  // comment\n  \"a\": 1\n}",
+			"{\n  \n  \"a\": 1\n}",
+		},
+		{
+			"字符串内不删",
+			`{"url": "http://example.com"}`,
+			`{"url": "http://example.com"}`,
+		},
+		{
+			"行尾注释",
+			`{"a": 1 // note`,
+			`{"a": 1 `,
+		},
+		{
+			"转义引号",
+			`{"s": "a\"//b"}`,
+			`{"s": "a\"//b"}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := string(stripJSONComments([]byte(tt.input)))
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestLoadConfigWithComments 配置文件含注释仍能正常解析
+func TestLoadConfigWithComments(t *testing.T) {
+	const sample = `{
+  "AppSettings": {
+    // 控制中心
+    "ctl_center": "redis://192.168.1.10:6379/vnc?ttl=15"
+  }
+}`
+	path := filepath.Join(t.TempDir(), "winvncgo.json")
+	if err := os.WriteFile(path, []byte(sample), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := loadConfig(path)
+	cc := cfg.ControlCenter()
+	if !cc.Enabled {
+		t.Fatal("控制中心应启用")
+	}
+	if cc.Host != "192.168.1.10" {
+		t.Errorf("Host = %q, want %q", cc.Host, "192.168.1.10")
+	}
+	if cc.TTL != 15 {
+		t.Errorf("TTL = %d, want 15", cc.TTL)
+	}
+}

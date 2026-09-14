@@ -51,12 +51,44 @@ func loadConfig(path string) Config {
 		log.Printf("配置文件未找到，使用默认配置（控制中心禁用）")
 		return cfg
 	}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		log.Printf("配置文件解析错误: %v", err)
+	if err := json.Unmarshal(stripJSONComments(data), &cfg); err != nil {
+		log.Printf("配置文件解析失败 (%s): %v — 控制中心将被禁用", path, err)
 		return cfg
 	}
 	log.Printf("配置已加载: %s", path)
 	return cfg
+}
+
+// stripJSONComments 去掉 JSON 中的 // 行注释，字符串内的 // 不受影响
+func stripJSONComments(data []byte) []byte {
+	var out []byte
+	inString := false
+	i := 0
+	for i < len(data) {
+		b := data[i]
+		if inString {
+			out = append(out, b)
+			if b == '\\' && i+1 < len(data) {
+				i++
+				out = append(out, data[i])
+			} else if b == '"' {
+				inString = false
+			}
+		} else if b == '"' {
+			inString = true
+			out = append(out, b)
+		} else if b == '/' && i+1 < len(data) && data[i+1] == '/' {
+			// 跳过整行
+			for i < len(data) && data[i] != '\n' {
+				i++
+			}
+			continue
+		} else {
+			out = append(out, b)
+		}
+		i++
+	}
+	return out
 }
 
 // ControlCenter 将 ctl_center 连接串解析为连接参数；空串/解析失败返回 Enabled=false

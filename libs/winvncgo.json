@@ -1,5 +1,16 @@
 {
   "AppSettings": {
-    "ctl_center": "redis://vnc:Vnc2026%@192.168.60.213:6379/vnc?ttl=30"
+    // 格式：redis://用户名:密码@主机:端口/键前缀?ttl=分钟
+    //
+    // 示例 1：无认证
+    // "ctl_center": "redis://192.168.132.86:6379/vnc?ttl=30"
+    //
+    // 示例 2：仅密码（用户名留空）
+    // "ctl_center": "redis://:gzredis123!@10.11.5.52:6379/vnc?ttl=30"
+    //
+    // 示例 3：用户名 + 密码
+    // "ctl_center": "redis://vnc:Vnc2026%@192.168.60.213:6379/vnc?ttl=30"
+
+    "ctl_center": "redis://192.168.132.86:6379/vnc?ttl=30"
   }
 }
