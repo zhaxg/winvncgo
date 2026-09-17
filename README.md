@@ -7,6 +7,7 @@
 - **设备 ID 管理**：自动生成 6 位随机 ID，用于标识和查找设备
 - **VNC 服务**：内置 UltraVNC，启动后自动生成密码并与 ID 绑定
 - **Redis 控制中心**：可选接入 Redis，实现设备 ID ↔ IP 的自动注册与查询
+- **自动重连**：Redis 断线后自动重连（5 秒心跳检测），VNC 服务停止后自动重启
 - **远程连接**：输入对方 ID 即可发起 VNC 连接，控制中心不可用时支持手动输入 IP
 - **Windows 11 Mica 效果**：原生窗口背景融合
 
@@ -68,7 +69,7 @@ winvncgo/
 │   ├── app.go              # 绑定到前端的 App 结构体
 │   ├── manager.go          # 核心业务逻辑：ID 生成、VNC 启停、Redis 注册
 │   ├── vnc.go              # UltraVNC 进程管理
-│   ├── redis.go            # 原生 TCP 实现的 Redis 客户端
+│   ├── redis.go            # 原生 TCP 实现的 Redis 客户端（含自动重连与心跳）
 │   ├── config.go           # 配置文件加载（winvncgo.json）
 │   ├── network.go          # 本机 IP 获取
 │   ├── id.go               # 6 位随机 ID 生成
@@ -82,7 +83,7 @@ winvncgo/
 │   └── wailsjs/            # Wails 自动生成的 JS 绑定
 ├── libs/
 │   ├── ultravnc/           # UltraVNC 二进制及 DLL
-│   └── winvncgo.json        # 默认配置文件
+│   └── winvncgo.json       # 默认配置（含注释示例）
 ├── build/                  # 构建产物
 ├── build.ps1               # 构建脚本（dev / build / release）
 ├── wails.json              # Wails 项目配置
@@ -92,25 +93,30 @@ winvncgo/
 
 ## 配置文件
 
-`winvncgo.json` 放在可执行文件同目录下，示例：
+`winvncgo.json` 放在可执行文件同目录下，格式如下：
 
 ```json
 {
-  "Redis": {
-    "Enabled": true,
-    "Host": "127.0.0.1",
-    "Port": 6379,
-    "Password": "",
-    "User": "",
-    "KeyPrefix": "vnc:",
-    "TTL": 30
+  "AppSettings": {
+    // 格式：redis://用户名:密码@主机:端口/键前缀?ttl=分钟
+    //
+    // 无认证
+    "ctl_center": "redis://192.168.1.100:6379/vnc?ttl=30"
+    //
+    // 仅密码（用户名留空）
+    // "ctl_center": "redis://:mypassword@10.0.0.1:6379/vnc?ttl=30"
+    //
+    // 用户名 + 密码
+    // "ctl_center": "redis://user:pass@192.168.1.100:6379/vnc?ttl=30"
   }
 }
 ```
 
-- `Enabled`：是否启用 Redis 控制中心
-- `TTL`：设备注册信息过期时间（分钟）
-- `KeyPrefix`：Redis key 前缀，用于隔离不同项目
+- `ctl_center`：Redis 连接串，支持 URL 格式；留空或不配置则禁用控制中心
+- `ttl`：设备注册信息过期时间（分钟），默认 30
+- 键前缀（路径部分）：Redis key 前缀，用于隔离不同项目，默认 `vnc:`
+
+配置文件支持 `//` 行注释（程序运行时自动去除）。
 
 未找到配置文件时使用默认配置（Redis `127.0.0.1:6379`，无密码）。
 
@@ -119,9 +125,10 @@ winvncgo/
 1. 启动时生成 6 位随机 ID，写入 UltraVNC 配置作为密码
 2. 启动 UltraVNC 服务（隐藏窗口，监听 5900 端口）
 3. 若 Redis 可用，将 `ID → IP:5900` 注册到 Redis（带 TTL）
-4. 定时轮询状态（VNC 运行状态、Redis 连接状态、是否有活跃连接）
-5. 要控制其他设备时：输入对方 ID → 从 Redis 查询对方 IP → 调用 VNC Viewer 发起连接
-6. 刷新 ID 时：若有活跃连接则跳过，否则停止 VNC → 删除旧 Redis 记录 → 生成新 ID → 重新启动
+4. 定时轮询状态（每 2 秒）：VNC 运行状态、Redis 连接状态、是否有活跃连接
+5. Redis 断线后通过心跳（5 秒）自动检测并重连；VNC 服务停止后自动尝试重启
+6. 要控制其他设备时：输入对方 ID → 从 Redis 查询对方 IP → 调用 VNC Viewer 发起连接
+7. 刷新 ID 时：若有活跃连接则跳过，否则停止 VNC → 删除旧 Redis 记录 → 生成新 ID → 重新启动
 
 ## 开发说明
 

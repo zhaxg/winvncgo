@@ -54,13 +54,17 @@ func (a *App) startup(ctx context.Context) {
 	a.applyMica()
 }
 
-// statusLoop 定时推送状态到前端
+// statusLoop 定时推送状态到前端，VNC 服务停止时自动尝试重启
 func (a *App) statusLoop() {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
+			// VNC 服务停止时自动尝试启动
+			if !a.mgr.vnc.IsRunning() {
+				a.mgr.vnc.EnsureService()
+			}
 			status := a.mgr.currentStatus()
 			runtime.EventsEmit(a.ctx, "status", status)
 		case <-a.ctx.Done():
