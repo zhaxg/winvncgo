@@ -14,33 +14,29 @@ type RedisClient struct {
 	mu        sync.Mutex
 	conn      net.Conn
 	reader    *bufio.Reader
+	host      string
+	port      int
+	password  string
+	user      string
 	prefix    string
 	ttl       time.Duration
 	connected bool
 }
 
+const reconnectCooldown = 5 * time.Second
+
+var lastReconnectFail time.Time
+
 func redisNew(host string, port int, password, user, prefix string, ttl int) *RedisClient {
-	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
-	if err != nil {
-		return &RedisClient{connected: false}
-	}
-
 	c := &RedisClient{
-		conn:      conn,
-		reader:    bufio.NewReader(conn),
-		prefix:    prefix,
-		ttl:       time.Duration(ttl) * time.Minute,
-		connected: true,
+		host:     host,
+		port:     port,
+		password: password,
+		user:     user,
+		prefix:   prefix,
+		ttl:      time.Duration(ttl) * time.Minute,
 	}
-
-	if password != "" {
-		if user != "" {
-			c.cmd("AUTH", user, password)
-		} else {
-			c.cmd("AUTH", password)
-		}
-	}
+	c.reconnect()
 	return c
 }
 
@@ -48,6 +44,45 @@ func (c *RedisClient) IsConnected() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.connected
+}
+
+// reconnect 尝试重建 TCP 连接并认证，冷却期内不重试
+func (c *RedisClient) reconnect() {
+	if time.Since(lastReconnectFail) < reconnectCooldown {
+		return
+	}
+	addr := net.JoinHostPort(c.host, strconv.Itoa(c.port))
+	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+	if err != nil {
+		lastReconnectFail = time.Now()
+		return
+	}
+	c.conn = conn
+	c.reader = bufio.NewReader(conn)
+	c.connected = true
+	if c.password != "" {
+		user := c.user
+		pass := c.password
+		// 直接发送 AUTH，不走 cmd 避免递归重连
+		authCmd := fmt.Sprintf("*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", len(pass), pass)
+		if user != "" {
+			authCmd = fmt.Sprintf("*3\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
+				len(user), user, len(pass), pass)
+		}
+		if _, wErr := conn.Write([]byte(authCmd)); wErr != nil {
+			c.connected = false
+			lastReconnectFail = time.Now()
+			conn.Close()
+			return
+		}
+		line, rErr := c.reader.ReadString('\n')
+		if rErr != nil || len(line) > 0 && line[0] == '-' {
+			c.connected = false
+			lastReconnectFail = time.Now()
+			conn.Close()
+			return
+		}
+	}
 }
 
 func (c *RedisClient) Set(key, value string) bool {
@@ -110,14 +145,27 @@ func (c *RedisClient) cmd(parts ...string) error {
 	for _, p := range parts {
 		sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(p), p))
 	}
-	if _, err := c.conn.Write([]byte(sb.String())); err != nil {
+	data := []byte(sb.String())
+	if _, err := c.conn.Write(data); err != nil {
 		c.connected = false
-		return err
+		c.reconnect()
+		if c.connected {
+			_, err = c.conn.Write(data)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	line, err := c.reader.ReadString('\n')
 	if err != nil {
 		c.connected = false
-		return err
+		c.reconnect()
+		if c.connected {
+			line, err = c.reader.ReadString('\n')
+		}
+		if err != nil {
+			return err
+		}
 	}
 	line = strings.TrimRight(line, "\r\n")
 	if len(line) > 0 && line[0] == '-' {
@@ -132,15 +180,28 @@ func (c *RedisClient) cmdReply(parts ...string) (string, error) {
 	for _, p := range parts {
 		sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(p), p))
 	}
-	if _, err := c.conn.Write([]byte(sb.String())); err != nil {
+	data := []byte(sb.String())
+	if _, err := c.conn.Write(data); err != nil {
 		c.connected = false
-		return "", err
+		c.reconnect()
+		if c.connected {
+			_, err = c.conn.Write(data)
+		}
+		if err != nil {
+			return "", err
+		}
 	}
 
 	line, err := c.reader.ReadString('\n')
 	if err != nil {
 		c.connected = false
-		return "", err
+		c.reconnect()
+		if c.connected {
+			line, err = c.reader.ReadString('\n')
+		}
+		if err != nil {
+			return "", err
+		}
 	}
 	line = strings.TrimRight(line, "\r\n")
 	if len(line) == 0 {
