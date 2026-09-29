@@ -28,6 +28,13 @@ New-Item -ItemType Directory -Path $workDir | Out-Null
 
 $downloaded = $null
 foreach ($u in $defaultUrls) {
+    # 本地文件路径直接使用
+    if (Test-Path $u) {
+        Write-Host "使用本地文件: $u" -ForegroundColor Cyan
+        $downloaded = (Resolve-Path $u).Path
+        break
+    }
+
     Write-Host "尝试下载: $u" -ForegroundColor Cyan
     $ext = if ($u -match '\.zip$') { ".zip" } else { ".cab" }
     $target = Join-Path $workDir ("webview2-109" + $ext)

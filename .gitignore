@@ -38,3 +38,6 @@ Desktop.ini
 # ===== 工具链 =====
 .code-graph/
 /libs/ultravnc
+
+# ===== 调研临时文件 =====
+.research_tmp/

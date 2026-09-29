@@ -92,6 +92,18 @@ switch ($Action) {
             exit 1
         }
 
+        # 诊断工具（控制台程序）：Win7 上启动失败时先跑它定位问题
+        go build -o build\bin\win7diag.exe .\cmd\win7diag
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "win7diag 构建失败" -ForegroundColor Red
+            exit 1
+        }
+        # 32 位版诊断工具：万一目标是 32 位 Win7，用它确认系统架构
+        $oldArch = $env:GOARCH
+        $env:GOARCH = "386"
+        go build -o build\bin\win7diag-x86.exe .\cmd\win7diag
+        $env:GOARCH = $oldArch
+
         # 组装 Windows 7 发行包到 dist\winvncgo-win7\
         $dist = Join-Path $PSScriptRoot "dist\winvncgo-win7"
         if (Test-Path $dist) {
@@ -100,6 +112,8 @@ switch ($Action) {
         New-Item -ItemType Directory -Path $dist | Out-Null
 
         Copy-Item build\bin\winvncgo.exe $dist
+        Copy-Item build\bin\win7diag.exe $dist -ErrorAction SilentlyContinue
+        Copy-Item build\bin\win7diag-x86.exe $dist -ErrorAction SilentlyContinue
         Copy-Item libs\ultravnc\* $dist -Force
         Copy-Item libs\winvncgo.json $dist
         Copy-Item libs\ultravnc.ini $dist

@@ -2,8 +2,6 @@ package tasks
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -223,11 +221,6 @@ func (m *Manager) Shutdown() {
 }
 
 func (m *Manager) log(msg string) {
-	line := fmt.Sprintf("[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), msg)
-	log.Print(line)
-	f, err := os.OpenFile(m.logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err == nil {
-		f.WriteString(line)
-		f.Close()
-	}
+	// 统一走应用日志（winvncgo.log），启动阶段即可记录
+	appLog(msg)
 }
