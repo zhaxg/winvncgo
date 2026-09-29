@@ -83,9 +83,37 @@ switch ($Action) {
         }
     }
     "win7" {
-        Write-Host "=== Windows 7 发行构建 ===" -ForegroundColor Yellow
+        Write-Host "=== Windows 7 发行构建（Go 1.20 + wails-win7） ===" -ForegroundColor Yellow
 
-        wails build
+        # Win7 兼容构建必须用 Go 1.20（官方支持 Win7 的最后一个版本）编译。
+        # 优先用 go1.20.14 SDK：go1.20.14 download 安装到 %USERPROFILE%\sdk\go1.20.14
+        $sdk = Join-Path $env:USERPROFILE "sdk\go1.20.14\bin"
+        if (Test-Path (Join-Path $sdk "go.exe")) {
+            $env:PATH = "$sdk;$env:PATH"
+        }
+        $gov = (& go version) -join ""
+        if ($gov -notmatch "go1\.20\.") {
+            Write-Host "当前 Go 是 '$gov'，Win7 构建需要 go1.20.x。" -ForegroundColor Red
+            Write-Host "请先执行:  go install golang.org/dl/go1.20.14@latest; go1.20.14 download" -ForegroundColor Yellow
+            exit 1
+        }
+        Write-Host "使用工具链: $gov" -ForegroundColor Cyan
+
+        # wails-win7 CLI（支持 Win7 的 Wails 分叉），没有则先安装
+        $wailsWin7 = Join-Path $PSScriptRoot "build\tools\wails-win7\wails.exe"
+        if (-not (Test-Path $wailsWin7)) {
+            Write-Host "安装 wails-win7 CLI ..." -ForegroundColor Yellow
+            $oldGobin = $env:GOBIN
+            $env:GOBIN = Join-Path $PSScriptRoot "build\tools\wails-win7"
+            go install github.com/cllsm/wails-win7/v2/cmd/wails@v2.0.0-20240914020515-2742ebadb0a7
+            $env:GOBIN = $oldGobin
+            if (-not (Test-Path $wailsWin7)) {
+                Write-Host "wails-win7 CLI 安装失败" -ForegroundColor Red
+                exit 1
+            }
+        }
+
+        & $wailsWin7 build
 
         if ($LASTEXITCODE -ne 0) {
             Write-Host "构建失败" -ForegroundColor Red
@@ -98,6 +126,8 @@ switch ($Action) {
             Write-Host "win7diag 构建失败" -ForegroundColor Red
             exit 1
         }
+        # 控制台版主程序：运行时 fatal error 会直接打印在黑窗口上
+        go build -tags "desktop,production" -o build\bin\winvncgo-console.exe .
         # 32 位版诊断工具：万一目标是 32 位 Win7，用它确认系统架构
         $oldArch = $env:GOARCH
         $env:GOARCH = "386"
@@ -112,8 +142,10 @@ switch ($Action) {
         New-Item -ItemType Directory -Path $dist | Out-Null
 
         Copy-Item build\bin\winvncgo.exe $dist
+        Copy-Item build\bin\winvncgo-console.exe $dist -ErrorAction SilentlyContinue
         Copy-Item build\bin\win7diag.exe $dist -ErrorAction SilentlyContinue
         Copy-Item build\bin\win7diag-x86.exe $dist -ErrorAction SilentlyContinue
+        Copy-Item scripts\check-win7.bat $dist -ErrorAction SilentlyContinue
         Copy-Item libs\ultravnc\* $dist -Force
         Copy-Item libs\winvncgo.json $dist
         Copy-Item libs\ultravnc.ini $dist

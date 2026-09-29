@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/cllsm/wails-win7/v2/pkg/runtime"
 )
 
 // App struct

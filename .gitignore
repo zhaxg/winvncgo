@@ -41,3 +41,6 @@ Desktop.ini
 
 # ===== 调研临时文件 =====
 .research_tmp/
+
+# ===== 构建工具（wails-win7 CLI） =====
+build/tools/

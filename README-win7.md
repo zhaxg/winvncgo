@@ -2,6 +2,10 @@
 
 本分支（`windows7`）在保持功能不变的前提下，使程序可以运行在 **Windows 7 SP1 x64** 上。
 
+> **技术栈**：Go 1.20.14（官方支持 Win7 的最后一个 Go 版本）+ [wails-win7](https://github.com/cllsm/wails-win7)
+> （Wails 的 Win7 兼容分叉）。主分支的 Go 1.26 + Wails v2.15 在 Win7 上运行时初始化即崩溃，
+> 因此 Win7 构建固定使用上述组合；构建脚本 `build.ps1 win7` 会自动检查工具链。
+
 ## 系统要求
 
 | 项目 | 要求 |
@@ -16,9 +20,11 @@
 
 ```
 winvncgo-win7\
-├── winvncgo.exe            # 主程序（Windows 7 兼容构建）
+├── winvncgo.exe            # 主程序（Go 1.20 + wails-win7 构建）
+├── winvncgo-console.exe    # 同款程序的控制台版（启动失败时黑窗口会显示错误）
 ├── win7diag.exe            # 诊断工具（控制台），启动失败时先运行它
 ├── win7diag-x86.exe        # 32 位版诊断工具（判断系统架构用）
+├── check-win7.bat          # 一键诊断：自动收集信息到 diag-report.txt
 ├── winvnc.exe / vncviewer.exe / *.dll   # UltraVNC 1.8.2.4
 ├── winvncgo.json / ultravnc.ini         # 配置文件
 ├── webview2\               # （可选）固定版本 WebView2 109 运行时
@@ -61,6 +67,11 @@ winvncgo-win7\
 ## 启动失败排查（重要）
 
 程序是 GUI 程序，失败时没有任何控制台输出。按下面顺序排查：
+
+### 0. 最省事：一键诊断
+
+双击 `check-win7.bat`：它会自动运行诊断工具和控制台版主程序、记录退出码、
+抓取事件日志，汇总到 `diag-report.txt` 并用记事本打开。把这个文件发回即可。
 
 ### 1. 先看日志
 

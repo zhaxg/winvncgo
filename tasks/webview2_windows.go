@@ -5,7 +5,7 @@ package tasks
 import (
 	"path/filepath"
 
-	"github.com/wailsapp/go-webview2/webviewloader"
+	"golang.org/x/sys/windows/registry"
 )
 
 // resolveWebView2BrowserPath 决定传给 Wails 的 WebView2 运行时目录（WebviewBrowserPath）。
@@ -14,7 +14,7 @@ import (
 // 依赖随程序分发的固定版本运行时（webview2\ 目录）。
 // Windows 10+：优先用系统安装的 WebView2，返回空字符串即可。
 //
-// 注意：Wails v2.15 会清空 WEBVIEW2_BROWSER_EXECUTABLE_FOLDER 环境变量，
+// 注意：Wails 会清空 WEBVIEW2_BROWSER_EXECUTABLE_FOLDER 环境变量，
 // 环境变量方式无效，只能走这里的 WebviewBrowserPath 选项。
 func resolveWebView2BrowserPath(baseDir string) string {
 	major, _, _ := osVersion()
@@ -26,11 +26,33 @@ func resolveWebView2BrowserPath(baseDir string) string {
 	if p := findFixedWebView2Runtime(baseDir); p != "" {
 		return p
 	}
-	// 没有固定版本运行时，但系统已装过 109.x 也能用
-	if _, err := webviewloader.GetAvailableCoreWebView2BrowserVersionString(""); err == nil {
+	// 没有固定版本运行时，但系统已装过 WebView2（109.x）也能用
+	if systemWebView2Installed() {
 		return ""
 	}
 	// 都没有：指向约定目录（即使不存在），让 Wails 报出明确的中文提示，
 	// 而不是走在线安装 WebView2 的流程（Win7 上必然失败）
 	return filepath.Join(baseDir, "webview2")
+}
+
+// systemWebView2Installed 通过注册表判断系统级 WebView2 运行时是否已安装。
+// WebView2 的 CLSID：{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}
+func systemWebView2Installed() bool {
+	const clsid = `SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`
+	paths := []string{
+		`SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`,
+		clsid,
+	}
+	for _, p := range paths {
+		k, err := registry.OpenKey(registry.LOCAL_MACHINE, p, registry.QUERY_VALUE)
+		if err != nil {
+			continue
+		}
+		pv, _, err := k.GetStringValue("pv")
+		k.Close()
+		if err == nil && pv != "" {
+			return true
+		}
+	}
+	return false
 }

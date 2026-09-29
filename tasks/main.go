@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"runtime/debug"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	winopts "github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/cllsm/wails-win7/v2"
+	"github.com/cllsm/wails-win7/v2/pkg/options"
+	"github.com/cllsm/wails-win7/v2/pkg/options/assetserver"
+	winopts "github.com/cllsm/wails-win7/v2/pkg/options/windows"
 )
 
 // Run 启动 Wails 应用，assets 由调用方提供

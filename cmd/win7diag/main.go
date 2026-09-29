@@ -53,12 +53,20 @@ func p(format string, args ...interface{}) {
 }
 
 func main() {
+	noPause := false
+	for _, a := range os.Args[1:] {
+		if a == "-nopause" {
+			noPause = true
+		}
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			p("\n[!] 发生 panic: %v\n", r)
 		}
-		p("\n(诊断结束，结果也已写入 win7diag.log，按回车关闭窗口...)\n")
-		fmt.Scanln()
+		if !noPause {
+			p("\n(诊断结束，结果也已写入 win7diag.log，按回车关闭窗口...)\n")
+			fmt.Scanln()
+		}
 	}()
 
 	baseDir := "."
