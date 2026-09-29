@@ -1,6 +1,9 @@
 # ===== 构建产物 =====
 # Wails 构建输出（二进制 + 复制的 UltraVNC 依赖），可随时用 build.ps1 重建
 build/bin/
+# Windows 7 发行包（build.ps1 win7）与 WebView2 固定版本运行时下载缓存
+dist/
+build/webview2-runtime/
 # Wails 生成的 Windows 资源（icon.ico 由 appicon.png 构建时自动重建）
 build/windows/icon.ico
 # Go 编译的临时资源对象文件（Wails 构建后自动删除，若残留则忽略）
