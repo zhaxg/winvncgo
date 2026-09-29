@@ -113,7 +113,13 @@ func (a *App) GetBaseDir() string {
 }
 
 // applyMica 应用 Windows 11 Mica 背景效果
+// 仅 Windows 11 生效：Win7/8/10 不支持 Mica，透明窗口背景反而会显示异常
 func (a *App) applyMica() {
+	if !isMicaSupported() {
+		log.Println("当前系统不支持 Mica 背景，跳过")
+		return
+	}
+
 	// 设置窗口背景为透明，让 DWM 效果透过来
 	runtime.WindowSetBackgroundColour(a.ctx, 0, 0, 0, 0)
 

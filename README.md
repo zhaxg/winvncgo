@@ -59,6 +59,15 @@ wails dev
 .\build.ps1 release
 ```
 
+### Windows 7 发行构建
+
+```powershell
+.\scripts\fetch-webview2-109.ps1   # 可选：下载 WebView2 109 固定版本运行时
+.\build.ps1 win7                   # 产物位于 dist\winvncgo-win7\
+```
+
+Windows 7 兼容性说明见 [README-win7.md](README-win7.md)。
+
 ## 项目结构
 
 ```
