@@ -134,6 +134,17 @@ switch ($Action) {
         go build -o build\bin\win7diag-x86.exe .\cmd\win7diag
         $env:GOARCH = $oldArch
 
+        # UPX 压缩主程序（诊断工具保持未压缩，便于排查）
+        if (Get-Command upx -ErrorAction SilentlyContinue) {
+            Write-Host "UPX 压缩中..."
+            upx --best --lzma build\bin\winvncgo.exe
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "UPX 压缩失败（不影响使用，继续打包）" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "未找到 upx，跳过压缩" -ForegroundColor Yellow
+        }
+
         # 组装 Windows 7 发行包到 dist\winvncgo-win7\
         $dist = Join-Path $PSScriptRoot "dist\winvncgo-win7"
         if (Test-Path $dist) {
