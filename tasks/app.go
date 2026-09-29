@@ -115,7 +115,11 @@ func (a *App) GetBaseDir() string {
 // applyMica 应用 Windows 11 Mica 背景效果
 // 仅 Windows 11 生效：Win7/8/10 不支持 Mica，透明窗口背景反而会显示异常
 func (a *App) applyMica() {
-	if !isMicaSupported() {
+	mica := isMicaSupported()
+	// 告知前端是否启用了 Mica，便于降级为不透明背景（保证文字对比度）
+	runtime.EventsEmit(a.ctx, "platform", map[string]bool{"mica": mica})
+
+	if !mica {
 		log.Println("当前系统不支持 Mica 背景，跳过")
 		return
 	}

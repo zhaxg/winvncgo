@@ -40,6 +40,21 @@ html.wails body {
   -webkit-backdrop-filter: blur(20px);
 }
 
+/* 无 Mica 背景时（Win7/8/10）改用不透明底色，
+   半透明样式叠在纯白窗口上会发灰、对比度不足 */
+html.wails.no-mica body {
+  background: #f3f3f3;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.wails.no-mica .card {
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
 body {
   color: #333;
   display: flex;

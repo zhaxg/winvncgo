@@ -31,6 +31,10 @@ window.addEventListener('load', async function() {
     window.runtime.EventsOn('status', function(s) {
       updateStatus(s);
     });
+    // 系统不支持 Mica 时（Win7/8/10）前端降级为不透明背景
+    window.runtime.EventsOn('platform', function(p) {
+      document.documentElement.classList.toggle('no-mica', !p || !p.mica);
+    });
   }
 });
 
