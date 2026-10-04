@@ -3,7 +3,6 @@ package tasks
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"strconv"
@@ -48,14 +47,14 @@ func loadConfig(path string) Config {
 	var cfg Config
 	data, err := os.ReadFile(path)
 	if err != nil {
-		log.Printf("配置文件未找到，使用默认配置（控制中心禁用）")
+		appLogf("配置文件未找到，使用默认配置（控制中心禁用）")
 		return cfg
 	}
 	if err := json.Unmarshal(stripJSONComments(data), &cfg); err != nil {
-		log.Printf("配置文件解析失败 (%s): %v — 控制中心将被禁用", path, err)
+		appLogf("配置文件解析失败 (%s): %v — 控制中心将被禁用", path, err)
 		return cfg
 	}
-	log.Printf("配置已加载: %s", path)
+	appLogf("配置已加载: %s", path)
 	return cfg
 }
 
@@ -100,7 +99,7 @@ func (c Config) ControlCenter() ControlCenter {
 
 	u, err := parseRedisURL(raw)
 	if err != nil {
-		log.Printf("控制中心连接串无效 (%v)，控制中心禁用", err)
+		appLogf("控制中心连接串无效 (%v)，控制中心禁用", err)
 		return ControlCenter{Enabled: false}
 	}
 

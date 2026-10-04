@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -109,7 +108,7 @@ func (a *App) shutdown() {
 		a.cancel()
 	}
 	a.mgr.Shutdown()
-	log.Println("应用已关闭")
+	appLog("应用已关闭")
 }
 
 // GetBaseDir 获取基础目录。
