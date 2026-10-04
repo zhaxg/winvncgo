@@ -1,6 +1,6 @@
-# WinVNC Go
+# WinVNC Go（mygo 版）
 
-基于 [Wails v2](https://wails.io/) 的轻量级 VNC 远程控制工具，支持通过 Redis 控制中心自动发现设备。
+基于 [MyGo](https://mygo.egoist.dev/) native UI 的轻量级 VNC 远程控制工具，支持通过 Redis 控制中心自动发现设备。界面由 MyGo 直接在 GPU 上绘制，无 WebView2 依赖，Windows 7 可直接运行。
 
 ## 功能
 
@@ -9,96 +9,69 @@
 - **Redis 控制中心**：可选接入 Redis，实现设备 ID ↔ IP 的自动注册与查询
 - **自动重连**：Redis 断线后自动重连（5 秒心跳检测），VNC 服务停止后自动重启
 - **远程连接**：输入对方 ID 即可发起 VNC 连接，控制中心不可用时支持手动输入 IP
-- **Windows 11 Mica 效果**：原生窗口背景融合
+- **托盘菜单**：右键多级菜单（刷新/复制 ID、连接、状态显示开关、退出）
+- **自定义字体**：内嵌 Maple Mono（Win7 自动按用户安装降级）
 
 ## 环境要求
 
 | 依赖 | 版本 | 说明 |
 |------|------|------|
-| Go | ≥ 1.25 | 编译后端 |
-| Node.js | - | 前端依赖（本项目为原生 HTML，无实际构建） |
-| Wails CLI | v2 | 开发和构建工具 |
+| Go | 1.27.1 | 构建工具链（Win7 用 `D:\env\go-legacy-win7`） |
 | Redis | - | 可选，用于设备中心注册 |
 | UPX | - | 可选，用于压缩最终产物 |
 
-## 安装 Wails CLI
+## 构建
 
 ```powershell
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+powershell -File build-mygo.ps1
 ```
 
-确保 `$env:GOPATH\bin` 在系统 PATH 中。
+- 使用 `D:\env\go-legacy-win7` 工具链构建 windows/amd64（可用 `-GoRoot` 覆盖）
+- `-ldflags "-H windowsgui"`：GUI 子系统，启动无控制台黑窗
+- 自动嵌入 `build\windows\icon.ico` 作为 exe 图标
+- 输出 `build\bin\winvncgo-mygo.exe`
 
-## 快速开始
+开发时直接 `go run .` 或 `go build` 即可（会带控制台窗口，便于看日志）。
 
-### 启动热加载开发模式
+## 运行
 
-```powershell
-.\build.ps1 dev
-```
+把 `winvncgo-mygo.exe` 放到 `winvnc.exe`、`winvncgo.json` 同目录运行（`build\bin\` 已含配套文件）。
 
-或直接：
-
-```powershell
-wails dev
-```
-
-启动后应用窗口会自动弹出，修改前端或 Go 代码后自动重新编译和刷新。
-
-### 开发构建
-
-```powershell
-.\build.ps1 build
-```
-
-产物位于 `build\bin\`，会自动执行 UPX 压缩并复制 UltraVNC 依赖文件。
-
-### 生产构建
-
-```powershell
-.\build.ps1 release
-```
-
-### Windows 7 发行构建
-
-```powershell
-.\scripts\fetch-webview2-109.ps1   # 可选：下载 WebView2 109 固定版本运行时
-.\build.ps1 win7                   # 产物位于 dist\winvncgo-win7\
-```
-
-Windows 7 兼容性说明见 [README-win7.md](README-win7.md)。
+- 主窗口：系统标准标题栏，420×570 固定大小
+- 托盘图标：右键打开多级菜单
+- 日志：`winvncgo.log`（与可执行文件同目录）
+- 单实例：重复启动会激活已有窗口后退出
 
 ## 项目结构
 
 ```
 winvncgo/
-├── main.go                 # 入口，嵌入 frontend 资源
+├── main.go                  # 入口（调 tasks.Run）
 ├── tasks/
-│   ├── main.go             # Wails 应用配置与启动
-│   ├── app.go              # 绑定到前端的 App 结构体
-│   ├── manager.go          # 核心业务逻辑：ID 生成、VNC 启停、Redis 注册
-│   ├── vnc.go              # UltraVNC 进程管理
-│   ├── redis.go            # 原生 TCP 实现的 Redis 客户端（含自动重连与心跳）
-│   ├── config.go           # 配置文件加载（winvncgo.json）
-│   ├── network.go          # 本机 IP 获取
-│   ├── id.go               # 6 位随机 ID 生成
-│   ├── types.go            # 状态事件结构体
-│   ├── dwm_windows.go      # Windows 11 Mica 背景效果
-│   └── dwm_other.go        # 非 Windows 平台占位
-├── frontend/               # 前端（原生 HTML + JS + CSS）
-│   ├── index.html
-│   ├── app.js
-│   ├── style.css
-│   └── wailsjs/            # Wails 自动生成的 JS 绑定
+│   ├── main.go              # mygo 窗口与启动保障（日志 / panic 兜底 / 单实例）
+│   ├── ui.go                # native UI 界面（原前端页面的重写）
+│   ├── tray.go              # 托盘图标与多级菜单
+│   ├── font.go              # Maple Mono 字体注册与 Win7 降级安装
+│   ├── app.go               # 后端门面（状态回调、GetStatus/RefreshID/Connect）
+│   ├── manager.go           # 核心业务（ID 生成、VNC 启停、Redis 注册）
+│   ├── vnc.go               # UltraVNC 进程管理
+│   ├── redis.go             # 原生 TCP 实现的 Redis 客户端
+│   ├── config.go            # 配置文件加载（winvncgo.json）
+│   ├── network.go           # 本机 IP 获取
+│   ├── id.go                # 6 位随机 ID 生成
+│   ├── types.go             # 状态事件结构体
+│   ├── icons/               # 内嵌图标（刷新/复制 SVG、托盘 PNG）
+│   └── fonts/               # 内嵌 Maple Mono（TTF）
 ├── libs/
-│   ├── ultravnc/           # UltraVNC 二进制及 DLL
-│   └── winvncgo.json       # 默认配置（含注释示例）
-├── build/                  # 构建产物
-├── build.ps1               # 构建脚本（dev / build / release）
-├── wails.json              # Wails 项目配置
+│   ├── ultravnc/            # UltraVNC 服务端与 DLL
+│   └── winvncgo.json        # 默认配置（含注释示例）
+├── cmd/win7diag/            # Win7 环境诊断工具
+├── build-mygo.ps1           # 构建脚本
 ├── go.mod
 └── go.sum
 ```
+
+Wails / WebView2 版本在 `windows7` 分支。
 
 ## 配置文件
 
@@ -134,14 +107,14 @@ winvncgo/
 1. 启动时生成 6 位随机 ID，写入 UltraVNC 配置作为密码
 2. 启动 UltraVNC 服务（隐藏窗口，监听 5900 端口）
 3. 若 Redis 可用，将 `ID → IP:5900` 注册到 Redis（带 TTL）
-4. 定时轮询状态（每 2 秒）：VNC 运行状态、Redis 连接状态、是否有活跃连接
+4. 定时轮询状态（每 2 秒）：VNC 运行状态、Redis 连接状态、是否有活跃连接，经 `onStatus` 回调推给界面
 5. Redis 断线后通过心跳（5 秒）自动检测并重连；VNC 服务停止后自动尝试重启
 6. 要控制其他设备时：输入对方 ID → 从 Redis 查询对方 IP → 调用 VNC Viewer 发起连接
 7. 刷新 ID 时：若有活跃连接则跳过，否则停止 VNC → 删除旧 Redis 记录 → 生成新 ID → 重新启动
 
 ## 开发说明
 
-- 前端为原生 HTML/JS/CSS，无构建步骤
-- Wails 自动生成 `frontend/wailsjs/` 下的 JS 绑定代码
+- 界面为 MyGo native UI（package `ui`），纯 Go，无 HTML/JS/前端构建
 - Redis 客户端为原生 TCP 实现（未使用第三方库）
 - 日志输出到 `winvncgo.log`（与可执行文件同目录）
+- Win7 兼容性：字体注册依赖 Win10 1703+ 的 DirectWrite API，Win7 自动降级为按用户安装
