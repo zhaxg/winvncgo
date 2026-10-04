@@ -39,6 +39,22 @@ try {
 
     $size = [math]::Round((Get-Item $Out).Length / 1MB, 2)
     Write-Host "构建成功: $Out ($size MB)" -ForegroundColor Green
+
+    # UPX 压缩（可选依赖，与原 wails 构建一致：--best --lzma）
+    if (Get-Command upx -ErrorAction SilentlyContinue) {
+        $before = (Get-Item $Out).Length
+        Write-Host "UPX 压缩..."
+        & upx --best --lzma $Out
+        if ($LASTEXITCODE -eq 0) {
+            $after = (Get-Item $Out).Length
+            $pct = [math]::Round((1 - $after / [double]$before) * 100, 1)
+            Write-Host ("UPX 完成: {0:N2} MB -> {1:N2} MB（缩小 {2}%）" -f ($before / 1MB), ($after / 1MB), $pct) -ForegroundColor Green
+        } else {
+            Write-Warning "UPX 压缩失败，保留未压缩产物继续使用"
+        }
+    } else {
+        Write-Host "未检测到 upx，跳过压缩（可选步骤）"
+    }
 } finally {
     # 中间文件构建后即清理（图标已在链接时嵌入 exe）
     Remove-Item rsrc.syso -Force -ErrorAction SilentlyContinue

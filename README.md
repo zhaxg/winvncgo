@@ -29,6 +29,7 @@ powershell -File build.ps1
 - 使用 `D:\env\go-legacy-win7` 工具链构建 windows/amd64（可用 `-GoRoot` 覆盖）
 - `-ldflags "-H windowsgui"`：GUI 子系统，启动无控制台黑窗
 - 自动嵌入根目录 `app.ico` 作为 exe 图标
+- 检测到 `upx` 时自动压缩产物（`--best --lzma`，与原 wails 构建一致）
 - 输出 `bin\winvncgo.exe`
 
 开发时直接 `go run .` 或 `go build` 即可（会带控制台窗口，便于看日志）。
