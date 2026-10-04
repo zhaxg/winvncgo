@@ -1,14 +1,7 @@
 package main
 
-import (
-	"embed"
-
-	"winvncgo/tasks"
-)
-
-//go:embed frontend
-var assets embed.FS
+import "winvncgo/tasks"
 
 func main() {
-	tasks.Run(assets)
+	tasks.Run()
 }

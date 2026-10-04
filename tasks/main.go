@@ -1,33 +1,32 @@
 package tasks
 
 import (
-	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 
-	"github.com/cllsm/wails-win7/v2"
-	"github.com/cllsm/wails-win7/v2/pkg/options"
-	"github.com/cllsm/wails-win7/v2/pkg/options/assetserver"
-	winopts "github.com/cllsm/wails-win7/v2/pkg/options/windows"
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 )
 
-// Run 启动 Wails 应用，assets 由调用方提供
-func Run(assets fs.FS) {
-	// 尽早打开日志：GUI 程序没有控制台，启动失败如果只写 stderr 将毫无痕迹
+// Run 启动 mygo 版应用：native UI 窗口，无 WebView2 依赖。
+//
+// 与 Wails 版一致的启动保障：文件日志 winvncgo.log、panic 兜底、
+// 单实例互斥（第二个实例激活已有窗口后退出）。
+func Run() {
 	baseDir := executableDir()
 	openAppLog(baseDir)
 	defer closeAppLog()
 	logStartupEnv(baseDir)
 
-	// 兜底捕获 panic，写日志并弹窗，避免进程无声无息消失
+	// 兜底 panic：写进日志，弹窗提示（GUI 程序没有控制台，
+	// 只写 stderr 的日志无处可看）
 	defer func() {
 		if r := recover(); r != nil {
 			stack := string(debug.Stack())
 			appLogf("!!! panic: %v\n%s", r, stack)
 			showMessageBox("远程协助 - 启动失败",
-				"程序发生内部错误，已写入日志 winvncgo.log：\n\n"+
+				"程序出现问题，详见日志 winvncgo.log。\n\n"+
 					toShortText(r), true)
 			os.Exit(1)
 		}
@@ -39,53 +38,45 @@ func Run(assets fs.FS) {
 		os.Exit(0)
 	}
 
-	winOptions := &winopts.Options{
-		Messages: &winopts.Messages{
-			InvalidFixedWebview2: "WebView2 运行时无效。Windows 7 请把固定版本运行时目录（内含 msedgewebview2.exe 和 EBWebView\\）" +
-				"放到程序目录的 webview2\\ 下，或安装 109.x 版本的 WebView2 运行时后重试。",
-		},
-	}
-
-	// Windows 7/8/8.1 上 WebView2 官方支持止步于 109.x，微软在线安装器已不可用，
-	// 需要随程序分发固定版本运行时（webview2\ 目录）。
-	browserPath := resolveWebView2BrowserPath(baseDir)
-	if browserPath != "" {
-		appLogf("使用 WebView2 运行时目录: %s", browserPath)
-		winOptions.WebviewBrowserPath = browserPath
-	} else {
-		appLog("使用系统安装的 WebView2 运行时")
-	}
+	// 内嵌字体：Win10 1703+ 直接注册；Win7 走按用户安装降级
+	ensureMapleMono()
 
 	app := NewApp()
-	appLog("初始化完成，进入 wails.Run")
+	appLogf("初始化完成，基础目录: %s，进入 mygo.App.Run", app.baseDir)
 
-	err := wails.Run(&options.App{
-		Title:         "远程协助",
-		Width:         420,
-		Height:        570,
-		DisableResize: true,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		Windows:    winOptions,
-		OnStartup:  app.startup,
-		OnShutdown: app.shutdown,
-		Bind: []interface{}{
-			app,
-		},
+	mygo.App.WhenReady(func() {
+		u := newUI(app)
+		win := mygo.NewWindow(mygo.WindowOptions{
+			Title: "远程协助",
+			Width: 420, Height: 570,
+			// 与 Wails 版 DisableResize 一致：固定窗口大小
+			MinWidth: 420, MaxWidth: 420,
+			MinHeight: 570, MaxHeight: 570,
+			Content: ui.View(u.view),
+		})
+		u.win = win
+		if err := win.SetIcon(appIconPNG); err != nil {
+			appLogf("窗口图标设置失败: %v", err)
+		}
+		appLog("窗口已创建")
+
+		// 界面就绪后注册状态回调，再启动后端循环，
+		// 保证回调触发时 u.win 已赋值（happens-before 由 goroutine 创建保证）
+		app.onStatus = u.onStatus
+		app.startup()
+		u.setupTray(win)
+		appLog("启动完成")
 	})
-	if err != nil {
-		// WebView2 缺失/无效、窗口创建失败等都会走到这里；
-		// 不弹窗的话用户只会看到“程序打不开”，完全无从排查
-		appLogf("wails.Run 失败: %v", err)
-		showMessageBox("远程协助 - 启动失败",
-			"界面启动失败：\n\n"+err.Error(), true)
-		log.Fatal("Error: ", err.Error())
+
+	if err := mygo.App.Run(); err != nil {
+		appLogf("mygo.App.Run 失败: %v", err)
+		showMessageBox("远程协助 - 启动失败", err.Error(), true)
+		os.Exit(1)
 	}
-	appLog("wails.Run 正常结束")
+	app.shutdown()
 }
 
-// executableDir 返回可执行文件所在目录（失败时退回工作目录）
+// executableDir 返回可执行文件所在目录，失败时回退到工作目录。
 func executableDir() string {
 	if exePath, err := os.Executable(); err == nil {
 		return filepath.Dir(exePath)
@@ -96,7 +87,7 @@ func executableDir() string {
 	return "."
 }
 
-// toShortText 把 recover 到的内容转成短文本用于弹窗
+// toShortText 把 recover 的异常转换成短文本。
 func toShortText(r interface{}) string {
 	s := toString(r)
 	if len(s) > 400 {

@@ -44,3 +44,5 @@ Desktop.ini
 
 # ===== 构建工具（wails-win7 CLI） =====
 build/tools/
+
+rsrc.syso
