@@ -23,19 +23,19 @@
 ## 构建
 
 ```powershell
-powershell -File build-mygo.ps1
+powershell -File build.ps1
 ```
 
 - 使用 `D:\env\go-legacy-win7` 工具链构建 windows/amd64（可用 `-GoRoot` 覆盖）
 - `-ldflags "-H windowsgui"`：GUI 子系统，启动无控制台黑窗
-- 自动嵌入 `build\windows\icon.ico` 作为 exe 图标
-- 输出 `build\bin\winvncgo-mygo.exe`
+- 自动嵌入根目录 `app.ico` 作为 exe 图标
+- 输出 `bin\winvncgo.exe`
 
 开发时直接 `go run .` 或 `go build` 即可（会带控制台窗口，便于看日志）。
 
 ## 运行
 
-把 `winvncgo-mygo.exe` 放到 `winvnc.exe`、`winvncgo.json` 同目录运行（`build\bin\` 已含配套文件）。
+把 `bin\winvncgo.exe` 放到 `winvnc.exe`、`winvncgo.json` 同目录运行（两者模板在 `libs\` 下）。
 
 - 主窗口：系统标准标题栏，420×570 固定大小
 - 托盘图标：右键打开多级菜单
@@ -66,7 +66,8 @@ winvncgo/
 │   ├── ultravnc/            # UltraVNC 服务端与 DLL
 │   └── winvncgo.json        # 默认配置（含注释示例）
 ├── cmd/win7diag/            # Win7 环境诊断工具
-├── build-mygo.ps1           # 构建脚本
+├── app.ico                  # exe 图标（build.ps1 经 rsrc 嵌入）
+├── build.ps1                # 构建脚本（输出 bin\winvncgo.exe）
 ├── go.mod
 └── go.sum
 ```

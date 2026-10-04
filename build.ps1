@@ -1,10 +1,10 @@
-﻿# build-mygo.ps1 — 用 Win7 兼容工具链构建 mygo 版（windows/amd64）
+﻿# build.ps1 — 用 Win7 兼容工具链构建（windows/amd64）
 #
-# 与 wails 版的 build.ps1 并列：mygo native UI 无 WebView2 依赖，
-# 产物为单个 exe，-H windowsgui 保证启动无控制台黑窗。
+# mygo native UI 无 WebView2 依赖，产物为单个 exe，
+# -H windowsgui 保证启动无控制台黑窗。
 param(
     [string]$GoRoot = "D:\env\go-legacy-win7",
-    [string]$Out    = "build\bin\winvncgo-mygo.exe"
+    [string]$Out    = "bin\winvncgo.exe"
 )
 
 Set-Location $PSScriptRoot
@@ -17,13 +17,13 @@ if (-not (Test-Path $go)) {
 # 锁定本机工具链，禁止 go.mod 触发在线下载/切换
 $env:GOTOOLCHAIN = "local"
 
-# 图标资源：build\windows\icon.ico 通常由 wails 生成（gitignored），存在才嵌入
-if (Test-Path "build\windows\icon.ico") {
-    Write-Host "嵌入 exe 图标: build\windows\icon.ico"
-    & $go run github.com/akavel/rsrc@latest -arch=amd64 -ico build\windows\icon.ico -o rsrc.syso
+# 图标资源：根目录 app.ico
+if (Test-Path "app.ico") {
+    Write-Host "嵌入 exe 图标: app.ico"
+    & $go run github.com/akavel/rsrc@latest -arch=amd64 -ico app.ico -o rsrc.syso
     if ($LASTEXITCODE -ne 0) { exit 1 }
 } else {
-    Write-Warning "build\windows\icon.ico 不存在，产物不带图标（可先跑 wails build 生成）"
+    Write-Warning "app.ico 不存在，产物不带图标"
     Remove-Item rsrc.syso -Force -ErrorAction SilentlyContinue
 }
 

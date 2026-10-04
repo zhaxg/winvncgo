@@ -1,6 +1,6 @@
 # ===== 构建产物 =====
-# 构建输出目录（build-mygo.ps1 输出 winvncgo-mygo.exe）
-build/bin/
+# 构建输出目录（build.ps1 输出 winvncgo.exe）
+bin/
 # 发布打包目录
 dist/
 
